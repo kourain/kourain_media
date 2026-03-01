@@ -1,0 +1,12 @@
+html {
+    background-color: #0f0f0f;
+}
+.cmax-w{
+    max-width: min( calc(100vw - max( 20vw - 190px , 0px )), 97vw);
+}
+.c-w{
+    width: min( calc(100vw - max( 20vw - 190px , 0px )), 97vw);
+}
+p, h1, h2, h3, h4, h5, h6 {
+    color: white;
+}

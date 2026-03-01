@@ -1,0 +1,28 @@
+[application]
+title = "Kourain Media Tool"
+name = "Kourain Media Tool"
+
+[bundle]
+identifier = "com.kourain.media"
+publisher = "Kourain"
+icon = ["assets/favicon.ico"]
+
+[web.app]
+
+# HTML title tag content
+title = "Kourain Media Tool"
+
+# include `assets` in web platform
+[web.resource]
+
+# Additional CSS style files
+style = []
+
+# Additional JavaScript files
+script = []
+
+[web.resource.dev]
+
+# Javascript code file
+# serve: [dev-server] only
+script = []

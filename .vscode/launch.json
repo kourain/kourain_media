@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Debug executable 'kourain_media'",
+            "type": "lldb",
+            "request": "launch",
+            "cargo": {
+                "args": [
+                    "debugger",
+                    "--bin=kourain_media",
+                    "serve --verbose --experimental-bundle-split --trace --release"
+                ]
+            },
+            "args": []
+        }
+    ]
+}
