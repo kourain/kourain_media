@@ -1,12 +1,11 @@
 use super::app_component_attribute::*;
-
 #[component]
-pub fn AppButton(props: AppCommonComponentProps) -> Element {
+pub fn AppTable(props: AppCommonComponentProps) -> Element {
     rsx! {
-        button {
+        table {
             class: props
                 .class(
-                    "text-white inline-flex opacity-80 hover:opacity-100 transition-opacity rounded-md border border-transparent hover:border-stone-300 dark:hover:border-stone-700",
+                    "border overflow-hidden rounded-md border-stone-200 dark:border-gray-700 p-2 bg-[#0d0d0d]",
                 ),
             onclick: move |evt| async move {
                 if let Some(onclick) = &props.onclick {
@@ -31,6 +30,16 @@ pub fn AppButton(props: AppCommonComponentProps) -> Element {
             onfocus: move |evt| async move {
                 if let Some(onfocus) = &props.onfocus {
                     onfocus.call(evt);
+                }
+            },
+            onkeydown: move |evt| async move {
+                if let Some(onkeydown) = &props.onkeydown {
+                    onkeydown.call(evt);
+                }
+            },
+            onkeyup: move |evt| async move {
+                if let Some(onkeyup) = &props.onkeyup {
+                    onkeyup.call(evt);
                 }
             },
             ..props.render_attribute(),

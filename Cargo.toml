@@ -10,6 +10,7 @@ edition = "2024"
 dioxus = { version = "0.7.3", features = ["router"] }
 dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }
 kourain_core = "1"
+rfd = "0.17.2"
 [features]
 default = ["desktop"]
 # The feature that are only required for the web = ["dioxus/web"] build target should be optional and only enabled in the web = ["dioxus/web"] feature

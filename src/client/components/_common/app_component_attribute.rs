@@ -6,31 +6,40 @@ pub struct AppCommonComponentProps {
     #[props(extends = GlobalAttributes)]
     pub attributes: Vec<Attribute>,
     pub children: Element,
+    //sub props
+    #[props(default)]
+    pub disabled: bool,
+    #[props(default)]
+    pub placeholder: Option<String>,
+    #[props(default)]
+    pub value: Option<String>,
+    #[props(default)]
+    pub r#type: Option<String>,
     // Event handlers
     // Form events
     #[props(default)]
-    pub on_input: Option<EventHandler<FormEvent>>,
+    pub oninput: Option<EventHandler<FormEvent>>,
     #[props(default)]
-    pub on_click: Option<EventHandler<MouseEvent>>,
+    pub onclick: Option<EventHandler<MouseEvent>>,
     #[props(default)]
-    pub on_change: Option<EventHandler<FormEvent>>,
+    pub onchange: Option<EventHandler<FormEvent>>,
     #[props(default)]
-    pub on_submit: Option<EventHandler<FormEvent>>,
+    pub onsubmit: Option<EventHandler<FormEvent>>,
     // media
     #[props(default)]
-    pub on_abort: Option<EventHandler<dioxus::prelude::Event<dioxus::events::MediaData>>>,
+    pub onabort: Option<EventHandler<dioxus::prelude::Event<dioxus::events::MediaData>>>,
     #[props(default)]
-    pub on_auxclick: Option<EventHandler<dioxus::prelude::Event<dioxus::events::PointerData>>>,
+    pub onauxclick: Option<EventHandler<dioxus::prelude::Event<dioxus::events::PointerData>>>,
     // Focus events
     #[props(default)]
-    pub on_focus: Option<EventHandler<FocusEvent>>,
+    pub onfocus: Option<EventHandler<FocusEvent>>,
     #[props(default)]
-    pub on_blur: Option<EventHandler<FocusEvent>>,
+    pub onblur: Option<EventHandler<FocusEvent>>,
     #[props(default)]
     //keyboard events
-    pub on_keydown: Option<EventHandler<KeyboardEvent>>,
+    pub onkeydown: Option<EventHandler<KeyboardEvent>>,
     #[props(default)]
-    pub on_keyup: Option<EventHandler<KeyboardEvent>>,
+    pub onkeyup: Option<EventHandler<KeyboardEvent>>,
 }
 impl AppCommonComponentProps {
     pub fn class(&self, default: &str) -> String {

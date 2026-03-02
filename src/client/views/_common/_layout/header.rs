@@ -24,7 +24,14 @@ pub fn Header() -> Element {
                         p { class: "text-lg font-bold", "Kourain Media" }
                     }
                 }
-                div { id: "items" }
+                div { id: "items",
+                    Link {
+                        id: "header-audio",
+                        to: Route::Audio {},
+                        class: "px-3 py-2 rounded-md hover:bg-stone-200 dark:hover:bg-stone-800",
+                        "Audio"
+                    }
+                }
                 div { id: "actions", class: "ml-auto",
                     Link {
                         id: "github",

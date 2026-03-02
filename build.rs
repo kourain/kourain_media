@@ -2,6 +2,18 @@ use std::collections::HashSet;
 use std::fs::{self, File};
 use std::io::{self, Write};
 use std::path::Path;
+//helper
+fn to_camel_case(s: &str) -> String {
+    s.split('_')
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect()
+}
 fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
     // Path to the folder containing your modules
     let module_dirs = [
@@ -76,8 +88,48 @@ fn asset_create() -> Result<(), Box<dyn std::error::Error>> {
     writeln!(mod_file, "}}")?;
     Ok(())
 }
+fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let views_dir = Path::new(base_path);
+    println!("cargo:rerun-if-changed={}", views_dir.display());
+    let mut mod_file = File::create(views_dir.join("mod.rs"))?;
+    writeln!(mod_file, "use dioxus::prelude::*;")?;
+    let mut views = HashSet::new();
+    for entry in fs::read_dir(views_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let relative_file_path_without_ext = path.strip_prefix("src/client/views").unwrap().with_extension("");
+        if path.is_file() {
+            if let Some(ext) = path.extension() {
+                if ext == "rs" {
+                    if let Some(file_name) = path.file_stem() {
+                        if file_name != "mod" {
+                            writeln!(mod_file, "mod {};\npub use {}::*;", file_name.to_string_lossy(), file_name.to_string_lossy())?;
+                            views.insert((relative_file_path_without_ext.to_string_lossy().to_string(), to_camel_case(&file_name.to_string_lossy().to_string())));
+                        }
+                    }
+                }
+            }
+        }
+        if path.is_dir() {
+            if let Some(file_name) = path.file_name() {
+                writeln!(mod_file, "mod {};\npub use {}::*;", file_name.to_string_lossy(), file_name.to_string_lossy())?;
+            }
+        }
+    }
+    writeln!(mod_file, "#[derive(Debug, Clone, Routable, PartialEq)]\n#[rustfmt::skip]\npub enum Route {{\n    #[layout(Layout)]")?;
+    for page in views {
+        if page.0.is_empty() || page.0 == "home" {
+            writeln!(mod_file, "        #[route(\"/\")]\n        {},", page.1)?;
+        } else {
+             writeln!(mod_file, "        #[route(\"/{}\")]\n        {},", page.0.replace('\\', "/"), page.1)?;
+        }
+    }
+    writeln!(mod_file, "}}")?;
+    Ok(())
+}
 fn main() -> io::Result<()> {
     _ = mod_create();
     _ = asset_create();
+    _ = auto_route("src/client/views");
     Ok(())
 }

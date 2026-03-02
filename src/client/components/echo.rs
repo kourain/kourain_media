@@ -18,7 +18,7 @@ pub fn Echo() -> Element {
                     id: "echo-input",
                     class: "bg-white",
                     aria_placeholder: "Type here to echo...",
-                    on_input: move |event: Event<FormData>| async move {
+                    oninput: move |event: Event<FormData>| async move {
                         let data = echo_server(event.value()).await.unwrap();
                         response.set(data);
                     },
@@ -26,7 +26,7 @@ pub fn Echo() -> Element {
                 AppButton {
                     id: "echo-button",
                     class: "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded",
-                    on_click: move |_| async move {
+                    onclick: move |_| async move {
                         let data = echo_server("abcd2".to_string()).await.unwrap();
                         response.set(data);
                     },
