@@ -4,6 +4,7 @@ use dioxus::prelude::*;
 /// Define a components module that contains all shared components for our app.
 mod client;
 mod server;
+mod helpers;
 use client::*;
 
 use crate::client::components::ASSETS;

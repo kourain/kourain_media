@@ -1,4 +1,4 @@
-pub use super::super::super::helpers::*;
+pub use crate::helpers::*;
 pub use dioxus::prelude::*;
 pub use dioxus_free_icons::*;
 #[derive(Props, Clone, PartialEq)]

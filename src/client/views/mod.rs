@@ -9,8 +9,8 @@ pub use _common::*;
 #[rustfmt::skip]
 pub enum Route {
     #[layout(Layout)]
-        #[route("/")]
-        Home,
         #[route("/audio")]
         Audio,
+        #[route("/")]
+        Home,
 }

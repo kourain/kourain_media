@@ -19,7 +19,7 @@ fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
     let module_dirs = [
         Path::new("src/client/components/_common"),
         Path::new("src/client/components/"),
-        Path::new("src/client/helpers/"),
+        Path::new("src/helpers/"),
         Path::new("src/server"),
         Path::new("src/client/views/_common")
     ];

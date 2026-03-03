@@ -21,6 +21,11 @@ pub fn AppInput(props: AppCommonComponentProps) -> Element {
             r#type,
             placeholder,
             value,
+            onclick: move |evt| async move {
+                if let Some(onclick) = &props.onclick {
+                    onclick.call(evt);
+                }
+            },
             oninput: move |evt| async move {
                 if let Some(oninput) = &props.oninput {
                     oninput.call(evt);
