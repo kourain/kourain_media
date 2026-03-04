@@ -146,7 +146,7 @@ pub fn Audio() -> Element {
                     value: bit_rate(),
                     onchange: move |e| bit_rate.set(e.value().parse::<u32>().unwrap_or(128)),
                     class: "p-2 border rounded bg-white text-black",
-                    for ext in [24, 32, 48, 64, 96, 128, 192, 256, 320].iter() {
+                    for ext in [16, 24, 32, 48, 64, 96, 128, 192, 256, 320].iter() {
                         option { class: "text-black", value: ext.to_string(), "{ext} kbps" }
                     }
                 }
