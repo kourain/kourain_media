@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
+mod _common;
+pub use _common::*;
 mod audio;
 pub use audio::*;
 mod home;
 pub use home::*;
-mod _common;
-pub use _common::*;
 #[derive(Debug, Clone, Routable, PartialEq)]
 #[rustfmt::skip]
 pub enum Route {

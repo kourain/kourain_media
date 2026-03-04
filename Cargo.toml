@@ -12,6 +12,7 @@ dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }
 rfd = "0.17.2"
 kourain_core = "1"
 symphonia = { version = "0.5", features = ["all"] }
+tokio = { version = "1.50.0", features = ["rt", "sync"] }
 [features]
 default = ["desktop"]
 # The feature that are only required for the web = ["dioxus/web"] build target should be optional and only enabled in the web = ["dioxus/web"] feature
