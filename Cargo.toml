@@ -3,6 +3,8 @@ name = "kourain_media"
 version = "0.1.0"
 authors = ["kourain <maiquyen16503@gmail.com>"]
 edition = "2024"
+description = "FFMPEG DEMO"
+license = "NONE"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
