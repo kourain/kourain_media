@@ -3,7 +3,7 @@ use crate::{
     helpers::{MediaInfo, get_audio_info},
     server::*,
 };
-use dioxus::document::eval;
+use dioxus::{document::eval, html::script::r#async};
 use kourain_core::ToSlug;
 use rfd::FileDialog;
 use std::collections::HashMap;
@@ -23,11 +23,53 @@ pub fn Audio() -> Element {
     let channel = use_signal(|| 1);
     let mut max_size = use_signal(|| 103_809_024u64); // 99 MB in bytes
     let mut is_converting = use_signal(|| false);
-    
-    // Sync sample_rate với selected_format
+
     use_effect(move || {
-        if selected_format() == "opus" {
-            sample_rate.set(48000);
+        print!("init progress...\n");
+        if is_converting() {
+            use_future(move || async move {
+                let mut current_state = HashMap::new(); // Lưu trạng thái hiện tại của các file đang convert
+                print!("progress checker started.\n");
+                loop {
+                    print!("Checking converting progress...\n");
+                    if !is_all_converting_finished() {
+                        let converting_list = get_converting_progress();
+                        for (file_name, progress) in converting_list {
+                            let prev_perc = current_state.get(&file_name).copied().unwrap_or(0);
+                            if progress > prev_perc {
+                                print!("{}: {}%\n", file_name, progress);
+                                current_state.insert(file_name.clone(), progress);
+                                eval(&format!(
+                                    // if count_thread_running == 0 {
+                                    r#"let el = document.getElementById("cv-perc-{}");if (el) el.innerText = "{}%";"#,
+                                    file_name.sub_string(0, 50), // first 10 chars of slug as id
+                                    progress,
+                                ));
+                            }
+                        }
+                    } else {
+                        // Sau khi hoàn tất, cập nhật lại progress của tất cả file về 100%
+                        let converting_list = get_converting_progress();
+                        for (file_name, _) in converting_list {
+                            let prev_perc = current_state.get(&file_name).copied().unwrap_or(0);
+                            if 100 > prev_perc {
+                                current_state.insert(file_name.clone(), 100);
+                                eval(&format!(
+                                    // if count_thread_running == 0 {
+                                    r#"let el = document.getElementById("cv-perc-{}");if (el) el.innerText = "100%";"#,
+                                    file_name.sub_string(0, 50), // first 10 chars of slug as id
+                                ));
+                            }
+                        }
+                        is_converting.set(false);
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+                    if !is_converting() {
+                        break;
+                    }
+                }
+                print!("progress checker stopped.\n");
+            });
         }
     });
     let bytes_per_sec = use_memo(move || {
@@ -145,6 +187,11 @@ pub fn Audio() -> Element {
                 select {
                     value: bit_rate(),
                     onchange: move |e| bit_rate.set(e.value().parse::<u32>().unwrap_or(128)),
+                    onselect: move |_| {
+                        if selected_format() == "opus" {
+                            sample_rate.set(48000);
+                        }
+                    },
                     class: "p-2 border rounded bg-white text-black",
                     for ext in [16, 24, 32, 48, 64, 96, 128, 192, 256, 320].iter() {
                         option { class: "text-black", value: ext.to_string(), "{ext} kbps" }
@@ -170,50 +217,36 @@ pub fn Audio() -> Element {
                     }
                 }
                 AppButton {
-                    class: "p-2",
+                    class: {
+                        format!(
+                            "p-2 text-white rounded {}",
+                            if is_converting() { " bg-red-500" } else { " bg-green-500" },
+                        )
+                    },
                     disabled: is_converting(),
                     onclick: move |_| async move {
                         if is_converting() {
+                            kill_all_ffmpeg_processes();
+                            is_converting.set(false);
                             return;
                         }
-
-                        is_converting.set(true);
 
                         let files = file_list();
                         let output_type = selected_format();
                         let output_bit_rate = bit_rate();
 
+                        is_converting.set(true);
                         for (path, _, _, media_info) in files {
                             let duration_ms = media_info.duration_ms.unwrap_or(0);
-                            let key_for_done = path.clone();
                             add_file_to_converting_list(
                                 &path,
                                 &output_type,
                                 output_bit_rate,
                                 duration_ms,
-                                move |progress, file_name, count_thread_running| {
-                                    println!(
-                                        "Progress: {}%, File: {}, Running Threads: {}",
-                                        progress,
-                                        file_name,
-                                        count_thread_running,
-                                    );
-                                    eval( // if count_thread_running == 0 {
-                                        &format!(
-                                            r#"let el = document.getElementById("convert-status-{}");if (el) el.innerText = "{}%";"#,
-                                            file_name,
-                                            progress,
-                                        ),
-                                    );
-                                    if progress == 100 {
-                                        remove_file_from_converting_list(&key_for_done);
-                                    }
-                                },
                             );
                         }
-                        is_converting.set(false);
                     },
-                    {if is_converting() { "Converting..." } else { "Convert" }}
+                    {if is_converting() { "Stop" } else { "Convert" }}
                 }
             }
             table { class: "w-full border-collapse text-white border",
@@ -232,7 +265,7 @@ pub fn Audio() -> Element {
                         tr {
                             class: "w-full grid grid-cols-8 text-center border-b",
                             id: file.0.file_stem().unwrap_or_default().to_string_lossy().into_owned(),
-                            td { class: "col-span-3",
+                            td { class: "col-span-3 line-clamp-2",
                                 "{file.0.file_name().unwrap_or_default().to_string_lossy()}"
                             }
                             td {
@@ -286,8 +319,15 @@ pub fn Audio() -> Element {
                             td { "{file.3.duration_ms.unwrap_or(0).format_duration()}" }
                             td {
                                 id: format!(
-                                    "convert-status-{}",
-                                    file.0.file_stem().unwrap_or_default().to_string_lossy().to_string().to_slug(),
+                                    "cv-perc-{}",
+                                    file
+                                        .0
+                                        .file_stem()
+                                        .unwrap_or_default()
+                                        .to_string_lossy()
+                                        .to_string()
+                                        .to_slug()
+                                        .sub_string(0, 50),
                                 ),
                                 "-"
                             }

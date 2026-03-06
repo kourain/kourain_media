@@ -30,10 +30,12 @@ fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
 
         // Collect all `.rs` files except mod.rs
         let mut mods = HashSet::new();
-        for entry in fs::read_dir(module_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-
+        let paths = fs::read_dir(module_dir)?
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, io::Error>>()?;
+        let mut sorted_paths = paths;
+        sorted_paths.sort();
+        for path in sorted_paths {
             if path.is_file() {
                 if let Some(ext) = path.extension() {
                     if ext == "rs" {
@@ -72,9 +74,12 @@ fn asset_create() -> Result<(), Box<dyn std::error::Error>> {
         mod_file,
         "use dioxus::prelude::*;\npub struct ASSETS;\nimpl ASSETS {{"
     )?;
-    for entry in fs::read_dir(asset_dir)? {
-        let entry = entry?;
-        let path = entry.path();
+    let paths = fs::read_dir(asset_dir)?
+        .map(|res| res.map(|e| e.path()))
+        .collect::<Result<Vec<_>, io::Error>>()?;
+    let mut sorted_paths = paths;
+    sorted_paths.sort();
+    for path in sorted_paths {
         if path.is_file() {
             if let Some(ext) = path.extension() {
                 match ext.to_string_lossy().as_ref() {

@@ -16,7 +16,7 @@ pub fn get_all_audioable_in_directory(dir: &str) -> Vec<PathBuf> {
             let path = entry.path();
             if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
                 match ext.to_lowercase().as_str() {
-                    "mp3" | "wav" | "flac" | "aac" | "ogg" | "opus" => files.push(path),
+                    "mp3" | "wav" | "flac" | "aac" | "ogg" | "opus" | "mp4" | "m4a" => files.push(path),
                     _ => {}
                 }
             }
