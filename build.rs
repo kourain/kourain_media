@@ -34,7 +34,7 @@ fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
         let mut sorted_paths = paths;
-        sorted_paths.sort();
+        sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
         for path in sorted_paths {
             if path.is_file() {
                 if let Some(ext) = path.extension() {
@@ -78,7 +78,7 @@ fn asset_create() -> Result<(), Box<dyn std::error::Error>> {
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()?;
     let mut sorted_paths = paths;
-    sorted_paths.sort();
+    sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     for path in sorted_paths {
         if path.is_file() {
             if let Some(ext) = path.extension() {
@@ -111,7 +111,7 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()?;
     let mut sorted_paths = paths;
-    sorted_paths.sort();
+    sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
     for path in sorted_paths {
         let path = path;
         let relative_file_path_without_ext = path
