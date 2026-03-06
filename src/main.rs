@@ -23,7 +23,19 @@ const CUSTOM_CSS: Asset = asset!("assets/custom.css");
 fn main() {
     // The `launch` function is the main entry point for a dioxus app. It takes a component and renders it with the platform feature
     // you have enabled
-    dioxus::launch(App);
+    #[cfg(feature = "desktop")]
+    fn launch_app() {
+        use dioxus::desktop::tao;
+        let window = tao::window::WindowBuilder::new().with_resizable(true);
+        dioxus::LaunchBuilder::new().with_cfg(dioxus::desktop::Config::new().with_window(window).with_menu(None)).launch(App);
+    }
+
+    #[cfg(not(feature = "desktop"))]
+    fn launch_app() {
+        dioxus::launch(App);
+    }
+
+    launch_app();
 }
 /// App is the main component of our app. Components are the building blocks of dioxus apps. Each component is a function
 /// that takes some props and returns an Element. In this case, App takes no props because it is the root of our app.
