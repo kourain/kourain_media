@@ -23,7 +23,7 @@ pub fn Audio() -> Element {
     let channel = use_signal(|| 1);
     let mut max_size = use_signal(|| 103_809_024u64); // 99 MB in bytes
     let mut is_converting = use_signal(|| false);
-
+    let mut max_instance = use_signal(|| 4);
     use_effect(move || {
         print!("init progress...\n");
         if is_converting() {
@@ -216,6 +216,15 @@ pub fn Audio() -> Element {
                         option { class: "text-black", value: ext.to_string(), "{ext.format_file_size()}" }
                     }
                 }
+                {" Max Instances: "}
+                select {
+                    value: max_instance(),
+                    onchange: move |e| max_instance.set(e.value().parse::<u32>().unwrap_or(3)),
+                    class: "p-2 border rounded bg-white text-black",
+                    for ext in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].iter() {
+                        option { class: "text-black", value: ext.to_string(), "{ext}" }
+                    }
+                }
                 AppButton {
                     class: {
                         format!(
@@ -236,6 +245,7 @@ pub fn Audio() -> Element {
                         let output_bit_rate = bit_rate();
 
                         is_converting.set(true);
+                        set_max_ffmpeg_instances(max_instance());
                         for (path, _, _, media_info) in files {
                             let duration_ms = media_info.duration_ms.unwrap_or(0);
                             add_file_to_converting_list(

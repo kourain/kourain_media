@@ -7,7 +7,7 @@
             "cargo": {
                 "args": [
                     "debugger",
-                    "--bin=kourain_media",
+                    "--bin=dx",
                     "serve --verbose --experimental-bundle-split --trace --release"
                 ]
             },

@@ -50,6 +50,10 @@ static FFMPEG_RUNNING_PROCESSES: LazyLock<
 > = LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
 static FFMPEG_CONVERTING_PROGRESS: LazyLock<std::sync::Mutex<HashMap<String, i32>>> =
     LazyLock::new(|| std::sync::Mutex::new(HashMap::new()));
+static CURRENT_FFMPEG_INSTANCES: LazyLock<std::sync::Mutex<u32>> =
+    LazyLock::new(|| std::sync::Mutex::new(0));
+static MAX_FFMPEG_INSTANCES: LazyLock<std::sync::Mutex<u32>> =
+    LazyLock::new(|| std::sync::Mutex::new(4));
 /// Eg: `convert_audio(input, "opus", 128, |progress| { println!("{}%", progress); })`
 fn convert_audio_async(
     input_file: &Path,
@@ -69,7 +73,20 @@ fn convert_audio_async(
     if let Some(parent) = output_file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("create ouput folder fail: {}", e))?;
     }
-
+    while (CURRENT_FFMPEG_INSTANCES
+        .lock()
+        .ok()
+        .map(|count| *count)
+        .unwrap_or(0)
+        >= MAX_FFMPEG_INSTANCES
+            .lock()
+            .ok()
+            .map(|max| *max)
+            .unwrap_or(4))
+    {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+    }
+    *CURRENT_FFMPEG_INSTANCES.lock().unwrap() += 1;
     // Chạy ffmpeg với progress report
     let mut cmd = std::process::Command::new("ffmpeg");
     cmd.hide_console();
@@ -101,6 +118,18 @@ fn convert_audio_async(
     let stdout = child.stdout.take().ok_or("error: stdout")?;
     let reader = std::io::BufReader::new(stdout);
     let mut last_progress = 0i32;
+    FFMPEG_CONVERTING_PROGRESS.lock().ok().map(|mut map| {
+        map.insert(
+            input_file
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+                .to_slug()
+                .sub_string(0, 50),
+            0,
+        );
+    });
     for line in reader.lines() {
         match kill_signal.try_recv() {
             Ok(_) | Err(TryRecvError::Disconnected) => {
@@ -120,7 +149,9 @@ fn convert_audio_async(
                 });
                 return Err("ffmpeg process killed".to_string());
             }
-            Err(TryRecvError::Empty) => {}
+            Err(TryRecvError::Empty) => {
+                print!("ffmpeg progress: {}\n", CURRENT_FFMPEG_INSTANCES.lock().unwrap());
+            }
         }
         if let Ok(line) = line {
             if line.starts_with("out_time_ms=") {
@@ -152,7 +183,7 @@ fn convert_audio_async(
     }
 
     let status = child.wait().map_err(|e| format!("err: {}", e))?;
-
+    *CURRENT_FFMPEG_INSTANCES.lock().unwrap() -= 1;
     if status.success() {
         FFMPEG_CONVERTING_PROGRESS.lock().ok().map(|mut map| {
             map.insert(
@@ -210,6 +241,9 @@ pub fn kill_all_ffmpeg_processes() {
             handle.kill();
         }
     }
+}
+pub fn set_max_ffmpeg_instances(max: u32) {
+    *MAX_FFMPEG_INSTANCES.lock().unwrap() = max;
 }
 pub fn add_file_to_converting_list(
     input_file: &Path,
