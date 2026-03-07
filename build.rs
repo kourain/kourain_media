@@ -14,6 +14,22 @@ fn to_camel_case(s: &str) -> String {
         })
         .collect()
 }
+fn sort_by_file_stem(mut paths: Vec<std::path::PathBuf>) -> Vec<std::path::PathBuf> {
+    paths.sort_by(|a, b| {
+        a.file_stem()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string()
+            .to_lowercase()
+            .cmp(
+                &b.file_stem()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string().to_lowercase(),
+            )
+    });
+    paths
+}
 fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
     // Path to the folder containing your modules
     let module_dirs = [
@@ -32,8 +48,7 @@ fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
         let paths = fs::read_dir(module_dir)?
             .map(|res| res.map(|e| e.path()))
             .collect::<Result<Vec<_>, io::Error>>()?;
-        let mut sorted_paths = paths;
-        sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+        let mut sorted_paths = sort_by_file_stem(paths);
         for path in sorted_paths {
             if path.is_file() {
                 if let Some(ext) = path.extension() {
@@ -75,12 +90,11 @@ fn mod_create() -> Result<(), Box<dyn std::error::Error>> {
 fn asset_create() -> Result<(), Box<dyn std::error::Error>> {
     let asset_dir = Path::new("assets");
     let mut str_builder: String = String::new();
-    str_builder.push_str("use dioxus::prelude::*;\npub struct ASSETS;\nimpl ASSETS {");
+    str_builder.push_str("use dioxus::prelude::*;\npub struct ASSETS;\nimpl ASSETS {\n");
     let paths = fs::read_dir(asset_dir)?
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()?;
-    let mut sorted_paths = paths;
-    sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    let mut sorted_paths = sort_by_file_stem(paths);
     for path in sorted_paths {
         if path.is_file() {
             if let Some(ext) = path.extension() {
@@ -99,7 +113,7 @@ fn asset_create() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     }
-    str_builder.push_str("}");
+    str_builder.push_str("}\n");
     if let Ok(existing_content) = fs::read_to_string("src/client/components/_common/assets.rs") {
         if existing_content != str_builder {
             let mut mod_file = File::create(Path::new(r"src/client/components/_common/assets.rs"))?;
@@ -117,8 +131,7 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let paths = fs::read_dir(views_dir)?
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()?;
-    let mut sorted_paths = paths;
-    sorted_paths.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+    let mut sorted_paths = sort_by_file_stem(paths);
     for path in sorted_paths {
         let path = path;
         let relative_file_path_without_ext = path
@@ -131,7 +144,7 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                     if let Some(file_name) = path.file_stem() {
                         if file_name != "mod" {
                             str_builder.push_str(&format!(
-                                "mod {};\npub use {}::*;",
+                                "mod {};\npub use {}::*;\n",
                                 file_name.to_string_lossy(),
                                 file_name.to_string_lossy()
                             ));
@@ -147,26 +160,26 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
         if path.is_dir() {
             if let Some(file_name) = path.file_name() {
                 str_builder.push_str(&format!(
-                    "mod {};\npub use {}::*;",
+                    "mod {};\npub use {}::*;\n",
                     file_name.to_string_lossy(),
                     file_name.to_string_lossy()
                 ));
             }
         }
     }
-    str_builder.push_str("#[derive(Debug, Clone, Routable, PartialEq)]\n#[rustfmt::skip]\npub enum Route {\n    #[layout(Layout)]");
+    str_builder.push_str("#[derive(Debug, Clone, Routable, PartialEq)]\n#[rustfmt::skip]\npub enum Route {\n    #[layout(Layout)]\n");
     for page in views {
         if page.0.is_empty() || page.0 == "home" {
-            str_builder.push_str(&format!("        #[route(\"/\")]\n        {},", page.1));
+            str_builder.push_str(&format!("        #[route(\"/\")]\n        {},\n", page.1));
         } else {
             str_builder.push_str(&format!(
-                "        #[route(\"/{}\")]\n        {},",
+                "        #[route(\"/{}\")]\n        {},\n",
                 page.0.replace('\\', "/"),
                 page.1
             ));
         }
     }
-    str_builder.push_str("}");
+    str_builder.push_str("}\n");
     if let Ok(existing_content) = fs::read_to_string(views_dir.join("mod.rs")) {
         if existing_content != str_builder {
             let mut mod_file = File::create(views_dir.join("mod.rs"))?;
