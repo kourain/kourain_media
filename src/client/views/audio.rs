@@ -258,6 +258,21 @@ pub fn Audio() -> Element {
                     },
                     {if is_converting() { "Stop" } else { "Convert" }}
                 }
+                AppButton {
+                    id: "open-output-folder-btn",
+                    class: "p-2 text-white rounded bg-blue-500",
+                    onclick: move |_| async move {
+                        let current_path = file_path();
+                        let encode_type = selected_format();
+                        if current_path.trim().is_empty() {
+                            return;
+                        }
+                        let output_folder = format!("{}\\{}", current_path, encode_type);
+                        open_windows_explorer(&output_folder)
+                            .unwrap_or_else(|e| eprintln!("Failed to open output folder: {}", e));
+                    },
+                    {"Open Output Folder"}
+                }
             }
             table { class: "w-full border-collapse text-white border",
                 thead { class: "w-full border-collapse",

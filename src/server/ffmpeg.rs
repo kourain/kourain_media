@@ -184,6 +184,17 @@ fn convert_audio_async(
 
     let status = child.wait().map_err(|e| format!("err: {}", e))?;
     *CURRENT_FFMPEG_INSTANCES.lock().unwrap() -= 1;
+    FFMPEG_RUNNING_PROCESSES.lock().ok().map(|mut map| {
+        map.remove(
+            &input_file
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string()
+                .to_slug()
+                .sub_string(0, 50),
+        );
+    });
     if status.success() {
         FFMPEG_CONVERTING_PROGRESS.lock().ok().map(|mut map| {
             map.insert(
@@ -195,17 +206,6 @@ fn convert_audio_async(
                     .to_slug()
                     .sub_string(0, 50),
                 100,
-            );
-        });
-        FFMPEG_RUNNING_PROCESSES.lock().ok().map(|mut map| {
-            map.remove(
-                &input_file
-                    .file_stem()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .to_string()
-                    .to_slug()
-                    .sub_string(0, 50),
             );
         });
         Ok(())
