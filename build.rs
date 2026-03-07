@@ -127,7 +127,7 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     let views_dir = Path::new(base_path);
     let mut str_builder: String = String::new();
     str_builder.push_str("use dioxus::prelude::*;\n");
-    let mut views = HashSet::new();
+    let mut views = Vec::new();
     let paths = fs::read_dir(views_dir)?
         .map(|res| res.map(|e| e.path()))
         .collect::<Result<Vec<_>, io::Error>>()?;
@@ -148,7 +148,7 @@ fn auto_route(base_path: &str) -> Result<(), Box<dyn std::error::Error>> {
                                 file_name.to_string_lossy(),
                                 file_name.to_string_lossy()
                             ));
-                            views.insert((
+                            views.push((
                                 relative_file_path_without_ext.to_string_lossy().to_string(),
                                 to_camel_case(&file_name.to_string_lossy().to_string()),
                             ));
