@@ -6,7 +6,44 @@ use std::path::Path;
 use std::process::Stdio;
 use std::sync::LazyLock;
 use std::sync::mpsc::{Receiver, TryRecvError};
+fn create_audio_encoder(output_type: &str) -> &str {
+    match output_type {
+        "opus" => "libopus",
+        "vorbis" | "ogg" => "libvorbis",
+        "mp3" => "libmp3lame",
+        "aac" => "aac",
+        "flac" => "flac",
+        "wav" => "pcm_s16le",
+        _ => format!("lib{}", output_type).leak(),
+    }
+}
 
+fn create_audio_encoder_args(output_type: &str, output_bit_rate: u32) -> Vec<String> {
+    let encoder = create_audio_encoder(output_type);
+    let mut args = vec!["-c:a".to_string(), encoder.to_string()];
+    match output_type {
+        "opus" => {
+            args.extend([
+                "-b:a".to_string(),
+                format!("{}k", output_bit_rate),
+                "-vbr".to_string(),
+                "on".to_string(),
+                "-compression_level".to_string(),
+                "0".to_string(),
+                "-application".to_string(),
+                "voip".to_string(),
+            ]);
+        }
+        "flac" => {
+            args.extend(["-compression_level".to_string(), "0".to_string()]);
+        }
+        "wav" => {}
+        _ => {
+            args.extend(["-b:a".to_string(), format!("{}k", output_bit_rate)]);
+        }
+    }
+    args
+}
 pub fn get_audio_bit_rate_ffprobe(path: &Path) -> Option<u32> {
     let mut cmd = std::process::Command::new("ffprobe");
 
@@ -73,44 +110,48 @@ fn convert_audio_async(
     if let Some(parent) = output_file.parent() {
         std::fs::create_dir_all(parent).map_err(|e| format!("create ouput folder fail: {}", e))?;
     }
-    while (CURRENT_FFMPEG_INSTANCES
-        .lock()
-        .ok()
-        .map(|count| *count)
-        .unwrap_or(0)
-        >= MAX_FFMPEG_INSTANCES
+    loop {
+        // Check kill signal while waiting
+        match kill_signal.try_recv() {
+            Ok(_) | Err(TryRecvError::Disconnected) => {
+                return Err("ffmpeg process killed while waiting".to_string());
+            }
+            Err(TryRecvError::Empty) => {}
+        }
+        if CURRENT_FFMPEG_INSTANCES
             .lock()
             .ok()
-            .map(|max| *max)
-            .unwrap_or(4))
-    {
+            .map(|count| *count)
+            .unwrap_or(0)
+            < MAX_FFMPEG_INSTANCES
+                .lock()
+                .ok()
+                .map(|max| *max)
+                .unwrap_or(4)
+        {
+            break;
+        }
         std::thread::sleep(std::time::Duration::from_millis(500));
     }
     *CURRENT_FFMPEG_INSTANCES.lock().unwrap() += 1;
     // Chạy ffmpeg với progress report
     let mut cmd = std::process::Command::new("ffmpeg");
     cmd.hide_console();
+    let mut ffmpeg_args: Vec<String> = vec![
+        "-i".to_string(),
+        input_file.to_str().unwrap_or("").to_string(),
+        "-ac".to_string(),
+        "1".to_string(),
+    ];
+    ffmpeg_args.extend(create_audio_encoder_args(output_type, output_bit_rate));
+    ffmpeg_args.extend([
+        "-progress".to_string(),
+        "pipe:1".to_string(),
+        output_file.to_str().unwrap_or("").to_string(),
+        "-y".to_string(),
+    ]);
     let mut child = cmd
-        .args([
-            "-i",
-            input_file.to_str().unwrap_or(""),
-            "-ac",
-            "1",
-            "-c:a",
-            &format!("lib{}", output_type),
-            "-b:a",
-            &format!("{}k", output_bit_rate),
-            "-vbr",
-            "on",
-            "-compression_level",
-            "0",
-            "-application",
-            "voip",
-            "-progress",
-            "pipe:1",
-            output_file.to_str().unwrap_or(""),
-            "-y",
-        ])
+        .args(&ffmpeg_args)
         .stdout(Stdio::piped())
         .stderr(Stdio::null())
         .spawn()
@@ -135,6 +176,8 @@ fn convert_audio_async(
             Ok(_) | Err(TryRecvError::Disconnected) => {
                 println!("Terminating.");
                 let _ = child.kill();
+                let _ = child.wait(); // Reap the killed process
+                *CURRENT_FFMPEG_INSTANCES.lock().unwrap() -= 1;
                 FFMPEG_CONVERTING_PROGRESS.lock().ok().map(|mut map| {
                     map.insert(
                         input_file

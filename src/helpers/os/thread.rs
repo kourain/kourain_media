@@ -19,6 +19,5 @@ impl<T> ThreadHandle<T> {
     }
     pub fn kill(self) {
         let _ = self.stop_signal_sender.send(()); // Gửi tín hiệu dừng
-        let _ = self.thread.join(); // Chờ thread kết thúc
     }
 }

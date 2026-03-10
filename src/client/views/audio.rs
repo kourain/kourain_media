@@ -17,9 +17,9 @@ fn calc_new_size(original_length: u64, bytes_per_second: f64) -> u64 {
 #[component]
 pub fn Audio() -> Element {
     let mut file_path = use_signal(String::new);
-    let mut selected_format = use_signal(|| String::from("opus"));
+    let mut selected_format = use_signal(|| String::from("aac"));
     let mut bit_rate = use_signal(|| 32);
-    let mut sample_rate = use_signal(|| 48000); // Opus default: 48000 Hz
+    let mut sample_rate = use_signal(|| 24000); // AAC default: 24000 Hz
     let channel = use_signal(|| 1);
     let mut max_size = use_signal(|| 103_809_024u64); // 99 MB in bytes
     let mut is_converting = use_signal(|| false);
@@ -173,7 +173,7 @@ pub fn Audio() -> Element {
             }
         }
         AppContainer { id: "file-table",
-            div { class: "flex items-center gap-x-2 mb-4 text-white",
+            div { class: "flex flex-wrap items-center gap-2 mb-4 text-white",
                 {"Convert to:"}
                 select {
                     value: selected_format(),
@@ -232,7 +232,6 @@ pub fn Audio() -> Element {
                             if is_converting() { " bg-red-500" } else { " bg-green-500" },
                         )
                     },
-                    disabled: is_converting(),
                     onclick: move |_| async move {
                         if is_converting() {
                             kill_all_ffmpeg_processes();

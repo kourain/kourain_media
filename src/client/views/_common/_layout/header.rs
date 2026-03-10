@@ -26,6 +26,12 @@ pub fn Header() -> Element {
                 }
                 div { id: "items",
                     Link {
+                        id: "header-youtube",
+                        to: Route::Home {},
+                        class: "px-3 py-2 rounded-md hover:bg-stone-200 dark:hover:bg-stone-800",
+                        "Youtube"
+                    }
+                    Link {
                         id: "header-audio",
                         to: Route::Audio {},
                         class: "px-3 py-2 rounded-md hover:bg-stone-200 dark:hover:bg-stone-800",

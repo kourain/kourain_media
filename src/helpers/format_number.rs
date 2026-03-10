@@ -26,3 +26,26 @@ impl FormatNumber for u64 {
         }
     }
 }
+impl FormatNumber for f64 {
+    fn format_file_size(&self) -> String {
+        let mut size = *self;
+        for suffix in ["B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"] {
+            if size < 1024.0 {
+                return format!("{:.2} {}", size, suffix);
+            }
+            size /= 1024.0;
+        }
+        format!("{:.2} B", size)
+    }
+    fn format_duration(&self) -> String {
+        let total_seconds = (*self).round() as u64;
+        let hours = total_seconds / 3600;
+        let minutes = (total_seconds % 3600) / 60;
+        let seconds = total_seconds % 60;
+        if hours > 0 {
+            format!("{:02}:{:02}:{:02}", hours, minutes, seconds)
+        } else {
+            format!("{:02}:{:02}", minutes, seconds)
+        }
+    }
+}
