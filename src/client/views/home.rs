@@ -23,15 +23,21 @@ pub fn Home() -> Element {
             use_future(move || async move {
                 for video in video_data.iter() {
                     eval(&format!(
-                        // first 10 chars of slug as id
                         r#"let el = document.getElementById("dl-{}");if (el) el.innerText = "Downloading...";"#,
                         video.id.clone(),
                     ));
-                    let file_size = download_audio_async(save_path(), video.id.clone())
-                        .await
-                        .unwrap_or_else(|_| 0);
+                    let mut file_size = 0;
+                    let mut try_count = 0;
+                    loop {
+                        file_size = download_audio_async(save_path(), video.id.clone())
+                            .await
+                            .unwrap_or_else(|_| 0);
+                        try_count += 1;
+                        if try_count > 3 || file_size > 0 {
+                            break;
+                        }
+                    }
                     eval(&format!(
-                        // first 10 chars of slug as id
                         r#"let el = document.getElementById("dl-{}");if (el) el.innerText = "{}";"#,
                         video.id.clone(),
                         file_size.format_file_size(),
@@ -113,7 +119,7 @@ pub fn Home() -> Element {
                                 println!("No videos to download");
                                 return;
                             }
-                            is_downloading.set(true);
+                            is_downloading.set(!is_downloading());
                         },
                         {if is_downloading() { "Stop" } else { "Download" }}
                     }

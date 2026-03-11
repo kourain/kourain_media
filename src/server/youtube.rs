@@ -60,7 +60,7 @@ pub async fn download_audio_async(
     let ffmpeg = libraries_dir.join("ffmpeg");
 
     let libraries = Libraries::new(youtube, ffmpeg);
-    let downloader = Downloader::builder(libraries, output_dir).build().await?;
+    let downloader = Downloader::builder(libraries, output_dir.clone()).build().await?;
 
     let url = if url_or_id.len() > 20 {
         url_or_id
@@ -72,7 +72,8 @@ pub async fn download_audio_async(
     downloader
         .download_audio_stream(&video, output_file_path.clone())
         .await?;
-    let result_file_size = std::fs::metadata(PathBuf::from(output_file_path)).map(|meta| meta.len()).unwrap_or(0);
+    let full_path = output_dir.join(&output_file_path);
+    let result_file_size = std::fs::metadata(&full_path).map(|meta| meta.len()).unwrap_or(0);
     return Ok(result_file_size);
 }
 async fn fallback_playlist_info_async(
