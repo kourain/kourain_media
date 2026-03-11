@@ -1,6 +1,6 @@
 [package]
 name = "kourain_media"
-version = "0.1.0"
+version = "1.1.0"
 authors = ["kourain <maiquyen16503@gmail.com>"]
 edition = "2024"
 description = "FFMPEG DEMO"
