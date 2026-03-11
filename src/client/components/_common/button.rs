@@ -33,6 +33,7 @@ pub fn AppButton(props: AppCommonComponentProps) -> Element {
                     onfocus.call(evt);
                 }
             },
+            disabled: props.disabled,
             ..props.render_attribute(),
             {props.children.clone()}
         }

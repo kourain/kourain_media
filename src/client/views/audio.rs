@@ -3,7 +3,7 @@ use crate::{
     helpers::{MediaInfo, get_audio_info},
     server::*,
 };
-use dioxus::{document::eval, html::script::r#async};
+use dioxus::document::eval;
 use kourain_core::ToSlug;
 use rfd::FileDialog;
 use std::collections::HashMap;
@@ -15,15 +15,15 @@ fn calc_new_size(original_length: u64, bytes_per_second: f64) -> u64 {
 }
 /// The Home page component that will be rendered when the current route is `[Route::Home]`
 #[component]
-pub fn Audio() -> Element {
-    let mut file_path = use_signal(String::new);
-    let mut selected_format = use_signal(|| String::from("aac"));
-    let mut bit_rate = use_signal(|| 32);
-    let mut sample_rate = use_signal(|| 24000); // AAC default: 24000 Hz
-    let channel = use_signal(|| 1);
-    let mut max_size = use_signal(|| 103_809_024u64); // 99 MB in bytes
+pub fn Audio(default_path:String) -> Element {
+    let settings = use_context::<SettingProviderState>();
+    let mut file_path = use_signal(|| default_path);
+    let mut selected_format = settings.default_selected_format;
+    let mut bit_rate = settings.default_bit_rate;
+    let mut sample_rate = settings.default_sample_rate;
+    let mut channel = settings.default_channels;
+    let mut max_instance = settings.default_max_instances;
     let mut is_converting = use_signal(|| false);
-    let mut max_instance = use_signal(|| 4);
     use_effect(move || {
         print!("init progress...\n");
         if is_converting() {
@@ -76,7 +76,7 @@ pub fn Audio() -> Element {
         let format = selected_format();
         let bit_rate_val = bit_rate() as f64;
         let sample_rate_val = sample_rate() as f64;
-
+        let channels = channel() as f64;
         match format.as_str() {
             // opus — nén hiệu quả hơn mp3, bitrate thấp hơn cùng chất lượng
             // opus cố định sample rate nội bộ là 48000 Hz
@@ -85,18 +85,24 @@ pub fn Audio() -> Element {
             "mp3" | "aac" | "ogg" => (bit_rate_val * 1000.0) / 8.0,
             // flac — nén lossless ~50-60% so với WAV
             "flac" => {
-                let channels = channel() as f64;
                 let bit_depth = 16.0;
                 let compression_ratio = 0.55;
                 sample_rate_val * channels * (bit_depth / 8.0) * compression_ratio
             }
             // file không nén — sample_rate * channels * bit_depth / 8
             "wav" | "pcm" => {
-                let channels = channel() as f64;
                 let bit_depth = 16.0;
                 sample_rate_val * channels * (bit_depth / 8.0)
             }
             _ => (bit_rate_val * 1000.0) / 8.0,
+        }
+    });
+    let all_file = use_memo(move || {
+        let current_path = file_path();
+        if current_path.trim().is_empty() {
+            Vec::new()
+        } else {
+            get_all_audioable_in_directory(current_path.as_str())
         }
     });
     let file_list = use_memo(move || {
@@ -104,11 +110,10 @@ pub fn Audio() -> Element {
         if current_path.trim().is_empty() {
             Vec::new()
         } else {
-            let all_item = get_all_audioable_in_directory(current_path.as_str());
             let mut result = Vec::new();
-            for item in all_item.iter() {
-                let size = std::fs::metadata(item).map(|meta| meta.len()).unwrap_or(0);
-                let media_info = get_audio_info(item).unwrap_or(MediaInfo {
+            for item in all_file().clone() {
+                let size = std::fs::metadata(&item).map(|meta| meta.len()).unwrap_or(0);
+                let media_info = get_audio_info(&item).unwrap_or(MediaInfo {
                     sample_rate: None,
                     bit_rate: None,
                     channels: None,
@@ -126,21 +131,25 @@ pub fn Audio() -> Element {
         }
     });
     let bit_rate_overrides = use_resource(move || {
-        let files = file_list();
+        let files = all_file();
+        consume_context::<LoadingProviderState>()
+            .is_loading
+            .set(true);
         async move {
             let mut overrides = HashMap::new();
-            for (path, _, _, media_info) in files {
-                if !media_info.bit_rate.is_some() {
-                    if let Some(br) = get_audio_bit_rate_ffprobe_async(&path).await {
-                        overrides.insert(path, br);
-                    }
+            for path in files {
+                if let Some(br) = get_audio_bit_rate_ffprobe_async(&path).await {
+                    overrides.insert(path, br);
                 }
             }
+            consume_context::<LoadingProviderState>()
+                .is_loading
+                .set(false);
             overrides
         }
     });
     let resolved_bit_rates = bit_rate_overrides().unwrap_or_default();
-    let display_rows = file_list()
+    let display_rows: Vec<((std::path::PathBuf, u64, u64, MediaInfo), u32)> = file_list()
         .into_iter()
         .map(|file| {
             let current_bit_rate = resolved_bit_rates
@@ -173,7 +182,7 @@ pub fn Audio() -> Element {
             }
         }
         AppContainer { id: "file-table",
-            div { class: "flex flex-wrap items-center gap-2 mb-4 text-white",
+            div { class: "flex flex-wrap justify-center items-center gap-2 mb-4 text-white",
                 {"Convert to:"}
                 select {
                     value: selected_format(),
@@ -207,15 +216,6 @@ pub fn Audio() -> Element {
                         option { class: "text-black", value: ext.to_string(), "{ext} Hz" }
                     }
                 }
-                {" Max Size: "}
-                select {
-                    value: max_size(),
-                    onchange: move |e| max_size.set(e.value().parse::<u64>().unwrap_or(104857600)),
-                    class: "p-2 border rounded bg-white text-black",
-                    for ext in [103_809_024, 524_288_000, 1_073_741_824].iter() {
-                        option { class: "text-black", value: ext.to_string(), "{ext.format_file_size()}" }
-                    }
-                }
                 {" Max Instances: "}
                 select {
                     value: max_instance(),
@@ -232,6 +232,7 @@ pub fn Audio() -> Element {
                             if is_converting() { " bg-red-500" } else { " bg-green-500" },
                         )
                     },
+                    disabled: file_list().is_empty(),
                     onclick: move |_| async move {
                         if is_converting() {
                             kill_all_ffmpeg_processes();
@@ -298,7 +299,7 @@ pub fn Audio() -> Element {
                                     span {
                                         class: format!(
                                             "text-md text-white {} px-1 rounded",
-                                            if file.2 < max_size() { "bg-green-500" } else { "bg-red-500" },
+                                            if file.2 < file.1 { "bg-green-500" } else { "bg-red-500" },
                                         ),
                                         "-> {file.2.format_file_size()}"
                                     }

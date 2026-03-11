@@ -9,8 +9,8 @@ pub use home::*;
 #[rustfmt::skip]
 pub enum Route {
     #[layout(Layout)]
-        #[route("/audio")]
-        Audio,
+        #[route("/audio?:default_path")]
+        Audio { default_path: String },
         #[route("/")]
         Home,
 }

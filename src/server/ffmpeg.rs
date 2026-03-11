@@ -193,7 +193,7 @@ fn convert_audio_async(
                 return Err("ffmpeg process killed".to_string());
             }
             Err(TryRecvError::Empty) => {
-                print!("ffmpeg progress: {}\n", CURRENT_FFMPEG_INSTANCES.lock().unwrap());
+                // print!("ffmpeg progress: {}\n", CURRENT_FFMPEG_INSTANCES.lock().unwrap());
             }
         }
         if let Ok(line) = line {

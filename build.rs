@@ -193,6 +193,6 @@ fn main() -> io::Result<()> {
     eprintln!("cargo:rerun-if-changed=build.rs");
     _ = mod_create();
     _ = asset_create();
-    _ = auto_route("src/client/views");
+    // _ = auto_route("src/client/views");
     Ok(())
 }

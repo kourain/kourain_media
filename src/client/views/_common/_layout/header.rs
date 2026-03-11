@@ -33,7 +33,9 @@ pub fn Header() -> Element {
                     }
                     Link {
                         id: "header-audio",
-                        to: Route::Audio {},
+                        to: Route::Audio {
+                            default_path: String::new(),
+                        },
                         class: "px-3 py-2 rounded-md hover:bg-stone-200 dark:hover:bg-stone-800",
                         "Audio"
                     }

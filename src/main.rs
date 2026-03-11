@@ -3,15 +3,15 @@
 use dioxus::prelude::*;
 /// Define a components module that contains all shared components for our app.
 mod client;
-mod server;
 mod helpers;
+mod server;
 use client::*;
 
-use crate::client::components::ASSETS;
+use crate::client::components::{ASSETS};
 
 /// The Route enum is used to define the structure of internal routes in our app. All route enums need to derive
 /// the [`Routable`] trait, which provides the necessary methods for the router to work.
-/// 
+///
 /// Each variant represents a different URL pattern that can be matched by the router. If that pattern is matched,
 /// the components for that route will be rendered.
 // GENERATED ROUTE ENUM on build.rs
@@ -27,7 +27,13 @@ fn main() {
     fn launch_app() {
         use dioxus::desktop::tao;
         let window = tao::window::WindowBuilder::new().with_resizable(true);
-        dioxus::LaunchBuilder::new().with_cfg(dioxus::desktop::Config::new().with_window(window).with_menu(None)).launch(App);
+        dioxus::LaunchBuilder::new()
+            .with_cfg(
+                dioxus::desktop::Config::new()
+                    .with_window(window)
+                    .with_menu(None)
+            )
+            .launch(App);
     }
 
     #[cfg(not(feature = "desktop"))]
