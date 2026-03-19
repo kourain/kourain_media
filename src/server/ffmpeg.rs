@@ -11,7 +11,7 @@ fn create_audio_encoder(output_type: &str) -> &str {
         "opus" => "libopus",
         "vorbis" | "ogg" => "libvorbis",
         "mp3" => "libmp3lame",
-        "aac" => "aac",
+        "aac" | "m4a" | "m4b" => "libfdk_aac", // thay aac → libfdk_aac
         "flac" => "flac",
         "wav" => "pcm_s16le",
         _ => format!("lib{}", output_type).leak(),
@@ -21,23 +21,50 @@ fn create_audio_encoder(output_type: &str) -> &str {
 fn create_audio_encoder_args(output_type: &str, output_bit_rate: u32) -> Vec<String> {
     let encoder = create_audio_encoder(output_type);
     let mut args = vec!["-c:a".to_string(), encoder.to_string()];
+
     match output_type {
         "opus" => {
             args.extend([
                 "-b:a".to_string(),
                 format!("{}k", output_bit_rate),
                 "-vbr".to_string(),
-                "on".to_string(),
+                "off".to_string(),
                 "-compression_level".to_string(),
-                "0".to_string(),
+                "10".to_string(),
                 "-application".to_string(),
-                "voip".to_string(),
+                "audio".to_string(),
             ]);
         }
+        "ogg" => {
+            args.extend(["-b:a".to_string(), format!("{}k", output_bit_rate)]);
+        }
         "flac" => {
-            args.extend(["-compression_level".to_string(), "0".to_string()]);
+            args.extend(["-compression_level".to_string(), "8".to_string()]);
         }
         "wav" => {}
+        "mp3" => {
+            args.extend([
+                "-b:a".to_string(),
+                format!("{}k", output_bit_rate),
+                "-q:a".to_string(),
+                "2".to_string(),
+            ]);
+        }
+        "aac" | "m4a" | "m4b" => {
+            let profile = if output_bit_rate <= 64 {
+                "aac_he" // HE-AAC v1 — tốt hơn nhiều ở bitrate thấp
+            } else {
+                "aac_lc" // AAC-LC — đủ tốt từ 80kbps trở lên
+            };
+            args.extend([
+                "-b:a".to_string(),
+                format!("{}k", output_bit_rate),
+                "-profile:a".to_string(),
+                profile.to_string(),
+                "-ar".to_string(),
+                "44100".to_string(),
+            ]);
+        }
         _ => {
             args.extend(["-b:a".to_string(), format!("{}k", output_bit_rate)]);
         }
@@ -45,7 +72,7 @@ fn create_audio_encoder_args(output_type: &str, output_bit_rate: u32) -> Vec<Str
     args
 }
 pub fn get_audio_bit_rate_ffprobe(path: &Path) -> Option<u32> {
-    let mut cmd = std::process::Command::new("ffprobe");
+    let mut cmd = std::process::Command::new("libs/ffprobe");
 
     cmd.hide_console();
 
@@ -113,8 +140,12 @@ fn convert_audio_async(
     loop {
         // Check kill signal while waiting
         match kill_signal.try_recv() {
-            Ok(_) | Err(TryRecvError::Disconnected) => {
+            Ok(_) => {
                 return Err("ffmpeg process killed while waiting".to_string());
+            }
+            Err(TryRecvError::Disconnected) => {
+                // Sender may be dropped for reasons unrelated to user cancel.
+                // Do not treat it as a hard kill signal.
             }
             Err(TryRecvError::Empty) => {}
         }
@@ -135,20 +166,27 @@ fn convert_audio_async(
     }
     *CURRENT_FFMPEG_INSTANCES.lock().unwrap() += 1;
     // Chạy ffmpeg với progress report
-    let mut cmd = std::process::Command::new("ffmpeg");
+    let mut cmd = std::process::Command::new("libs/ffmpeg");
     cmd.hide_console();
     let mut ffmpeg_args: Vec<String> = vec![
+        "-y".to_string(), // global option — phải đứng đầu
+        "-fflags".to_string(),
+        "+genpts".to_string(),
         "-i".to_string(),
         input_file.to_str().unwrap_or("").to_string(),
-        "-ac".to_string(),
-        "1".to_string(),
+        "-vn".to_string(),
+        "-sn".to_string(),
+        "-dn".to_string(),
+        "-af".to_string(),
+        "aresample=async=1:first_pts=0".to_string(),
     ];
+
     ffmpeg_args.extend(create_audio_encoder_args(output_type, output_bit_rate));
+
     ffmpeg_args.extend([
+        output_file.to_str().unwrap_or("").to_string(), // output file trước -progress
         "-progress".to_string(),
         "pipe:1".to_string(),
-        output_file.to_str().unwrap_or("").to_string(),
-        "-y".to_string(),
     ]);
     let mut child = cmd
         .args(&ffmpeg_args)
@@ -173,7 +211,7 @@ fn convert_audio_async(
     });
     for line in reader.lines() {
         match kill_signal.try_recv() {
-            Ok(_) | Err(TryRecvError::Disconnected) => {
+            Ok(_) => {
                 println!("Terminating.");
                 let _ = child.kill();
                 let _ = child.wait(); // Reap the killed process
@@ -191,6 +229,9 @@ fn convert_audio_async(
                     );
                 });
                 return Err("ffmpeg process killed".to_string());
+            }
+            Err(TryRecvError::Disconnected) => {
+                // Sender may be dropped unexpectedly; keep conversion running.
             }
             Err(TryRecvError::Empty) => {
                 // print!("ffmpeg progress: {}\n", CURRENT_FFMPEG_INSTANCES.lock().unwrap());
@@ -287,6 +328,13 @@ pub fn kill_all_ffmpeg_processes() {
 }
 pub fn set_max_ffmpeg_instances(max: u32) {
     *MAX_FFMPEG_INSTANCES.lock().unwrap() = max;
+    if let Ok(mut processes) = FFMPEG_RUNNING_PROCESSES.lock() {
+        processes.clear();
+    }
+    if let Ok(mut progress) = FFMPEG_CONVERTING_PROGRESS.lock() {
+        progress.clear();
+    }
+    CURRENT_FFMPEG_INSTANCES.lock().unwrap().clone_from(&0);
 }
 pub fn add_file_to_converting_list(
     input_file: &Path,

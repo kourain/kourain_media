@@ -40,12 +40,12 @@ pub fn use_setting_provider() -> SettingProviderState {
     let default_bit_rate = use_signal(|| {
         json.get("default_bit_rate")
             .and_then(|v| v.as_u64())
-            .unwrap_or(32) as u32
+            .unwrap_or(48) as u32
     });
     let default_sample_rate = use_signal(|| {
         json.get("default_sample_rate")
             .and_then(|v| v.as_u64())
-            .unwrap_or(24000) as u32
+            .unwrap_or(22050) as u32
     });
     let default_channels = use_signal(|| {
         json.get("default_channels")

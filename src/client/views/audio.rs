@@ -21,16 +21,18 @@ pub fn Audio(default_path:String) -> Element {
     let mut selected_format = settings.default_selected_format;
     let mut bit_rate = settings.default_bit_rate;
     let mut sample_rate = settings.default_sample_rate;
-    let mut channel = settings.default_channels;
+    let channel = settings.default_channels;
     let mut max_instance = settings.default_max_instances;
     let mut is_converting = use_signal(|| false);
     use_effect(move || {
-        print!("init progress...\n");
         if is_converting() {
-            use_future(move || async move {
+            dioxus::prelude::spawn(async move {
                 let mut current_state = HashMap::new(); // Lưu trạng thái hiện tại của các file đang convert
                 print!("progress checker started.\n");
                 loop {
+                    if !is_converting() {
+                        break;
+                    }
                     print!("Checking converting progress...\n");
                     if !is_all_converting_finished() {
                         let converting_list = get_converting_progress();
@@ -48,8 +50,14 @@ pub fn Audio(default_path:String) -> Element {
                             }
                         }
                     } else {
-                        // Sau khi hoàn tất, cập nhật lại progress của tất cả file về 100%
                         let converting_list = get_converting_progress();
+                        // Tránh race ở thời điểm vừa bấm Convert nhưng thread chưa kịp đăng ký.
+                        // Nếu chưa thấy file nào, đợi vòng sau thay vì dừng checker ngay.
+                        if converting_list.is_empty() && current_state.is_empty() {
+                            tokio::time::sleep(tokio::time::Duration::from_millis(150)).await;
+                            continue;
+                        }
+                        // Sau khi hoàn tất, cập nhật lại progress của tất cả file về 100%
                         for (file_name, _) in converting_list {
                             let prev_perc = current_state.get(&file_name).copied().unwrap_or(0);
                             if 100 > prev_perc {
@@ -62,11 +70,9 @@ pub fn Audio(default_path:String) -> Element {
                             }
                         }
                         is_converting.set(false);
-                    }
-                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-                    if !is_converting() {
                         break;
                     }
+                    tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
                 }
                 print!("progress checker stopped.\n");
             });
@@ -244,8 +250,23 @@ pub fn Audio(default_path:String) -> Element {
                         let output_type = selected_format();
                         let output_bit_rate = bit_rate();
 
-                        is_converting.set(true);
                         set_max_ffmpeg_instances(max_instance());
+
+                        for (path, _, _, _) in &files {
+                            let file_name = path
+                                .file_stem()
+                                .unwrap_or_default()
+                                .to_string_lossy()
+                                .to_string()
+                                .to_slug()
+                                .sub_string(0, 50);
+                            eval(
+                                &format!(
+                                    r#"let el = document.getElementById("cv-perc-{}");if (el) el.innerText = "-";"#,
+                                    file_name,
+                                ),
+                            );
+                        }
                         for (path, _, _, media_info) in files {
                             let duration_ms = media_info.duration_ms.unwrap_or(0);
                             add_file_to_converting_list(
@@ -255,6 +276,7 @@ pub fn Audio(default_path:String) -> Element {
                                 duration_ms,
                             );
                         }
+                        is_converting.set(true);
                     },
                     {if is_converting() { "Stop" } else { "Convert" }}
                 }

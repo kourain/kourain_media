@@ -1,6 +1,6 @@
 [package]
 name = "kourain_media"
-version = "1.1.0"
+version = "1.1.1"
 authors = ["kourain <maiquyen16503@gmail.com>"]
 edition = "2024"
 description = "FFMPEG DEMO"
@@ -10,7 +10,7 @@ license = "NONE"
 
 [dependencies]
 reqwest = { version = "0.13.2", features = ["json"] }
-yt-dlp = "2.5.0"
+yt-dlp = "2.7.0"
 dioxus = { version = "0.7.3", features = ["router"] }
 dioxus-free-icons = { version = "0.10.0", features = ["lucide"] }
 rfd = "0.17.2"
